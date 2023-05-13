@@ -1,0 +1,41 @@
+dist:
+  name: otel-transparency-collector
+  description: "Custom OpenTelemetry Collector distribution"
+  otelcol_version: "0.54.0"
+  output_path: /tmp/otelcol
+  version: "0.1.0"
+  go: "/usr/local/bin/go" # On MacOS, installed with `brew`.
+
+receivers:
+  - import: go.opentelemetry.io/collector/receiver/otlpreceiver
+    gomod: go.opentelemetry.io/collector v0.54.0
+  - import: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver
+    gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jaegerreceiver v0.54.0
+  - import: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver
+    gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/opencensusreceiver v0.54.0
+  - import: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver
+    gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/zipkinreceiver v0.54.0
+
+extensions:
+  - import: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension
+    gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.54.0
+
+processors:
+  - import: github.com/akkbng/otel-transparency-collector
+    gomod: github.com/akkbng/otel-transparency-collector main
+    name: transparencyprocessor
+  - import: go.opentelemetry.io/collector/processor/batchprocessor
+    gomod: go.opentelemetry.io/collector v0.54.0
+  - import: github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbytraceprocessor
+    gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbytraceprocessor v0.54.0
+
+replaces:
+  - github.com/akkbng/otel-transparency-collector => /build # Set up to be used by Dockerfile
+
+exporters:
+  - import: go.opentelemetry.io/collector/exporter/otlpexporter
+    gomod: go.opentelemetry.io/collector v0.54.0
+  - import: go.opentelemetry.io/collector/exporter/otlphttpexporter
+    gomod: go.opentelemetry.io/collector v0.54.0
+  - import: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/jaegerexporter
+    gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/jaegerexporter v0.54.0
