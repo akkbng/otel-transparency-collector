@@ -21,9 +21,9 @@ extensions:
     gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.54.0
 
 processors:
-  - import: github.com/akkbng/otel-transparency-collector
-    gomod: github.com/akkbng/otel-transparency-collector main
-    name: transparencyprocessor
+#  - import: github.com/akkbng/otel-transparency-collector
+#    gomod: github.com/akkbng/otel-transparency-collector main
+#    name: transparencyprocessor
   - import: go.opentelemetry.io/collector/processor/batchprocessor
     gomod: go.opentelemetry.io/collector v0.54.0
   - import: github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbytraceprocessor
