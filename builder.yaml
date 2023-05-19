@@ -1,7 +1,7 @@
 dist:
   name: otel-transparency-collector
   description: "Custom OpenTelemetry Collector distribution"
-  otelcol_version: "0.54.0"
+  otelcol_version: "0.77.0"
   output_path: /tmp/otelcol
   version: "0.1.0"
   go: "/usr/local/bin/go" # On MacOS, installed with `brew`.
