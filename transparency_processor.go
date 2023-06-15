@@ -15,7 +15,7 @@ import (
 var processorCapabilities = consumer.Capabilities{MutatesData: true}
 
 // this is gonna be deleted after we get the services list from tilt file
-var serviceList = [5]string{"cartService", "emailService", "quoteService", "frontend", "paymentService"}
+var serviceList = [5]string{"cartservice", "emailservice", "quoteservice", "frontend", "paymentservice"}
 
 const (
 	attrCheckFlag           = "tilt.check_flag"
