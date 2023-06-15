@@ -14,6 +14,9 @@ import (
 
 var processorCapabilities = consumer.Capabilities{MutatesData: true}
 
+// this is gonna be deleted after we get the services list from tilt file
+var serviceList = [5]string{"cartService", "emailService", "quoteService", "frontend", "paymentService"}
+
 const (
 	attrCheckFlag           = "tilt.check_flag"
 	attrCategories          = "tilt.dataDisclosed.category"
@@ -33,6 +36,7 @@ type tiltAttributes struct {
 	storages            []string
 	purposes            []string
 	automatedDecision   bool
+	serviceName         string
 }
 
 type transparencyProcessor struct {
@@ -76,8 +80,19 @@ func (a *transparencyProcessor) processTraces(ctx context.Context, td ptrace.Tra
 				}
 				tiltComponent, ok := span.Attributes().Get(attrCategories)
 				if !ok {
+					//if the span does not have the tiltComponent attribute, but the service name is in the serviceList, set the checkFlag attribute to false
+					serviceName, ok := resource.Attributes().Get("service.name")
+					if !ok {
+						continue
+					}
+					for _, service := range serviceList {
+						if serviceName.AsString() == service {
+							span.Attributes().PutBool(attrCheckFlag, false)
+						}
+					}
 					continue
 				}
+
 				//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
 				if tiltComponent.AsString() != "" {
 					span.Attributes().PutBool(attrCheckFlag, true)
