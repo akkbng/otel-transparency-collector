@@ -2,42 +2,44 @@ package transparencyprocessor
 
 import (
 	"context"
-	"github.com/akkbng/otel-transparency-collector/internal/filterspan"
+	"github.com/akkbng/otel-transparency-collector/internal/filter/filterspan"
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/config"
+
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/processor"
 	"go.opentelemetry.io/collector/processor/processorhelper"
 )
 
-const typeStr = "transparency"
+//const typeStr = "transparency"
 
-func NewFactory() component.ProcessorFactory {
-	return component.NewProcessorFactory(
-		typeStr,
+// NewFactory creates a factory for the transparency processor
+func NewFactory() processor.Factory {
+	return processor.NewFactory(
+		Type,
 		createDefaultConfig,
-		component.WithTracesProcessor(createTracesProcessor),
-	)
+		processor.WithTraces(createTracesProcessor, TracesStability))
 }
 
-func createDefaultConfig() config.Processor {
-	return &Config{
-		ProcessorSettings: config.NewProcessorSettings(config.NewComponentID(typeStr)),
-	}
+func createDefaultConfig() component.Config {
+	return &Config{}
 }
 
-func createTracesProcessor(_ context.Context, set component.ProcessorCreateSettings, cfg config.Processor, nextConsumer consumer.Traces) (component.TracesProcessor, error) {
+func createTracesProcessor(
+	ctx context.Context,
+	set processor.CreateSettings,
+	cfg component.Config,
+	nextConsumer consumer.Traces,
+) (processor.Traces, error) {
 	oCfg := cfg.(*Config)
-	include, err := filterspan.NewMatcher(oCfg.Include)
-	if err != nil {
-		return nil, err
-	}
-	exclude, err := filterspan.NewMatcher(oCfg.Exclude)
+	skipExpr, err := filterspan.NewSkipExpr(&oCfg.MatchConfig)
 	if err != nil {
 		return nil, err
 	}
 	return processorhelper.NewTracesProcessor(
-		cfg, nextConsumer,
-		newTransparencyProcessor(set, include, exclude, oCfg.ServiceMap).processTraces,
-		processorhelper.WithCapabilities(processorCapabilities),
-	)
+		ctx,
+		set,
+		cfg,
+		nextConsumer,
+		newTransparencyProcessor(set.Logger, skipExpr).processTraces,
+		processorhelper.WithCapabilities(processorCapabilities))
 }

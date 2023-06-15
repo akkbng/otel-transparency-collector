@@ -1,14 +1,12 @@
 package transparencyprocessor
 
 import (
-	"github.com/akkbng/otel-transparency-collector/internal/filterconfig"
-	"go.opentelemetry.io/collector/config"
+	"github.com/akkbng/otel-transparency-collector/internal/filter/filterconfig"
+	"go.opentelemetry.io/collector/component"
 )
 
 type Config struct {
-	config.ProcessorSettings `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
 	filterconfig.MatchConfig `mapstructure:",squash"`
-	ServiceMap               map[string]string `mapstructure:"serviceMap"`
 }
 
-var _ config.Processor = (*Config)(nil)
+var _ component.Config = (*Config)(nil)
