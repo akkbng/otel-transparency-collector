@@ -23,9 +23,9 @@ extensions:
       go.opentelemetry.io/collector/extension/ballastextension v0.79.0
 
 processors:
-#  - import: github.com/akkbng/otel-transparency-collector
-#    gomod: github.com/akkbng/otel-transparency-collector main
-#    name: transparencyprocessor
+  - import: github.com/akkbng/otel-transparency-collector
+    gomod: github.com/akkbng/otel-transparency-collector main
+    name: transparencyprocessor
   - gomod:
       go.opentelemetry.io/collector/processor/batchprocessor v0.79.0
   - gomod:
