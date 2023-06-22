@@ -5,6 +5,7 @@ import (
 	"github.com/akkbng/otel-transparency-collector/internal/filter/expr"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/ottlspan"
 	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"sync"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 )
 
 var processorCapabilities = consumer.Capabilities{MutatesData: true}
+
+// this is gonna be deleted after we get the services list from tilt file
+var serviceList = [4]string{"cartservice", "emailservice", "quoteservice", "paymentservice"}
 
 const (
 	attrCheckFlag           = "tilt.check_flag"
@@ -33,6 +37,7 @@ type tiltAttributes struct {
 	storages            []string
 	purposes            []string
 	automatedDecision   bool
+	serviceName         string
 }
 
 type transparencyProcessor struct {
@@ -74,19 +79,33 @@ func (a *transparencyProcessor) processTraces(ctx context.Context, td ptrace.Tra
 						continue
 					}
 				}
-				tiltComponent, ok := span.Attributes().Get(attrCategories)
-				if !ok {
-					continue
-				}
-				//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
-				if tiltComponent.AsString() != "" {
-					span.Attributes().PutBool(attrCheckFlag, true)
-				} else {
-					span.Attributes().PutBool(attrCheckFlag, false)
-				}
+				insertAttributes(span, resource)
 
 			}
 		}
 	}
 	return td, nil
+}
+
+func insertAttributes(span ptrace.Span, resource pcommon.Resource) {
+	tiltComponent, ok := span.Attributes().Get(attrCategories)
+	if !ok {
+		//if the span does not have the tiltComponent attribute, but the service name is in the serviceList, set the checkFlag attribute to false
+		serviceName, ok := resource.Attributes().Get("service.name")
+		if !ok {
+			return
+		}
+		for _, service := range serviceList {
+			if serviceName.AsString() == service {
+				span.Attributes().PutBool(attrCheckFlag, false)
+			}
+		}
+		return
+	}
+	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
+	if tiltComponent.AsString() != "" {
+		span.Attributes().PutBool(attrCheckFlag, true)
+	} else {
+		span.Attributes().PutBool(attrCheckFlag, false)
+	}
 }
