@@ -5,7 +5,6 @@ import (
 	"github.com/akkbng/otel-transparency-collector/internal/filter/expr"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/ottlspan"
 	"go.opentelemetry.io/collector/consumer"
-	"go.opentelemetry.io/collector/pdata/pcommon"
 	"sync"
 	"time"
 
@@ -79,33 +78,30 @@ func (a *transparencyProcessor) processTraces(ctx context.Context, td ptrace.Tra
 						continue
 					}
 				}
-				insertAttributes(span, resource)
+				tiltComponent, ok := span.Attributes().Get(attrCategories)
+				if !ok {
+					//if the span does not have the tiltComponent attribute, but the service name is in the serviceList, set the checkFlag attribute to false
+					serviceName, ok := resource.Attributes().Get("service.name")
+					if !ok {
+						continue
+					}
+					for _, service := range serviceList {
+						if serviceName.AsString() == service {
+							span.Attributes().PutBool(attrCheckFlag, false)
+						}
+					}
+					continue
+				}
+
+				//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
+				if tiltComponent.AsString() != "" {
+					span.Attributes().PutBool(attrCheckFlag, true)
+				} else {
+					span.Attributes().PutBool(attrCheckFlag, false)
+				}
 
 			}
 		}
 	}
 	return td, nil
-}
-
-func insertAttributes(span ptrace.Span, resource pcommon.Resource) {
-	tiltComponent, ok := span.Attributes().Get(attrCategories)
-	if !ok {
-		//if the span does not have the tiltComponent attribute, but the service name is in the serviceList, set the checkFlag attribute to false
-		serviceName, ok := resource.Attributes().Get("service.name")
-		if !ok {
-			return
-		}
-		for _, service := range serviceList {
-			if serviceName.AsString() == service {
-				span.Attributes().PutBool(attrCheckFlag, false)
-			}
-		}
-		return
-	}
-	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
-	if tiltComponent.AsString() != "" {
-		span.Attributes().PutBool(attrCheckFlag, true)
-	} else {
-		span.Attributes().PutBool(attrCheckFlag, false)
-	}
 }
