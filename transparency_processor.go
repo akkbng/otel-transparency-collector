@@ -2,6 +2,7 @@ package transparencyprocessor
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/akkbng/otel-transparency-collector/internal/filter/expr"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/ottlspan"
 	"go.opentelemetry.io/collector/consumer"
@@ -111,66 +112,70 @@ func server() {
 
 // returns graph fields as json object, and in application/json format
 func getFields(writer http.ResponseWriter, request *http.Request) {
+	jsonData := `{
+	  "edges_fields": [
+		{
+		  "field_name": "id",
+		  "type": "string"
+		},
+		{
+		  "field_name": "source",
+		  "type": "string"
+		},
+		{
+		  "field_name": "target",
+		  "type": "string"
+		},
+		{
+		  "field_name": "mainStat",
+		  "type": "number"
+		}
+	  ],
+	  "nodes_fields": [
+		{
+		  "field_name": "id",
+		  "type": "string"
+		},
+		{
+		  "field_name": "title",
+		  "type": "string"
+		},
+		{
+		  "field_name": "mainStat",
+		  "type": "string"
+		},
+		{
+		  "field_name": "secondaryStat",
+		  "type": "number"
+		},
+		{
+		  "color": "red",
+		  "field_name": "arc__failed",
+		  "type": "number"
+		},
+		{
+		  "color": "green",
+		  "field_name": "arc__passed",
+		  "type": "number"
+		},
+		{
+		  "displayName": "Role",
+		  "field_name": "detail__role",
+		  "type": "string"
+		}
+	  ]
+	}`
+	jData, err := json.Marshal(jsonData)
+	if err != nil {
+		// handle error
+	}
 	writer.Header().Set("Content-Type", "application/json")
-	writer.Write([]byte(`{
-  "edges_fields": [
-    {
-      "field_name": "id",
-      "type": "string"
-    },
-    {
-      "field_name": "source",
-      "type": "string"
-    },
-    {
-      "field_name": "target",
-      "type": "string"
-    },
-    {
-      "field_name": "mainStat",
-      "type": "number"
-    }
-  ],
-  "nodes_fields": [
-    {
-      "field_name": "id",
-      "type": "string"
-    },
-    {
-      "field_name": "title",
-      "type": "string"
-    },
-    {
-      "field_name": "mainStat",
-      "type": "string"
-    },
-    {
-      "field_name": "secondaryStat",
-      "type": "number"
-    },
-    {
-      "color": "red",
-      "field_name": "arc__failed",
-      "type": "number"
-    },
-    {
-      "color": "green",
-      "field_name": "arc__passed",
-      "type": "number"
-    },
-    {
-      "displayName": "Role",
-      "field_name": "detail__role",
-      "type": "string"
-    }
-  ]
-}`))
+	writer.Write(jData)
 }
 
 // returns graph data as json object, and in application/json format
 func getGraph(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Set("Content-Type", "application/json")
-	writer.Write([]byte(`{
+	jsonData := `{
     "edges": [
         {
             "id": "1",
@@ -197,5 +202,11 @@ func getGraph(writer http.ResponseWriter, request *http.Request) {
             "title": "Service2"
         }
     ]
-}`))
+	}`
+	jData, err := json.Marshal(jsonData)
+	if err != nil {
+		// handle error
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Write(jData)
 }
