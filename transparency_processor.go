@@ -79,29 +79,18 @@ func (a *transparencyProcessor) processTraces(ctx context.Context, td ptrace.Tra
 						continue
 					}
 				}
-				insertAttributes(span, resource)
-
+				tiltComponent, ok := span.Attributes().Get(attrCategories)
+				if !ok {
+					continue
+				}
+				insertTiltCheck(span, tiltComponent)
 			}
 		}
 	}
 	return td, nil
 }
 
-func insertAttributes(span ptrace.Span, resource pcommon.Resource) {
-	tiltComponent, ok := span.Attributes().Get(attrCategories)
-	if !ok {
-		//if the span does not have the tiltComponent attribute, but the service name is in the serviceList, set the checkFlag attribute to false
-		serviceName, ok := resource.Attributes().Get("service.name")
-		if !ok {
-			return
-		}
-		for _, service := range serviceList {
-			if serviceName.AsString() == service {
-				span.Attributes().PutBool(attrCheckFlag, false)
-			}
-		}
-		return
-	}
+func insertTiltCheck(span ptrace.Span, tiltComponent pcommon.Value) {
 	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
 	if tiltComponent.AsString() != "" {
 		span.Attributes().PutBool(attrCheckFlag, true)
