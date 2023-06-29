@@ -97,7 +97,7 @@ func newTransparencyProcessor(ctx context.Context, settings component.TelemetryS
 		if err != nil {
 			return nil, err
 		}
-		eval, err := getNewCompositePolicy(settings, &policyCfg.CompositeCfg)
+		eval, err := getPolicyEvaluator(settings, policyCfg)
 		if err != nil {
 			return nil, err
 		}
@@ -125,6 +125,17 @@ func newTransparencyProcessor(ctx context.Context, settings component.TelemetryS
 	tsp.deleteChan = make(chan pcommon.TraceID, cfg.NumTraces)
 
 	return tsp, nil
+}
+
+func getPolicyEvaluator(settings component.TelemetrySettings, cfg *PolicyCfg) (sampling.PolicyEvaluator, error) {
+	switch cfg.Type {
+	case Composite:
+		return getNewCompositePolicy(settings, &cfg.CompositeCfg)
+	case And:
+		return getNewAndPolicy(settings, &cfg.AndCfg)
+	default:
+		return getSharedPolicyEvaluator(settings, &cfg.sharedPolicyCfg)
+	}
 }
 
 // ConsumeTraces is required by the processor.Traces interface.

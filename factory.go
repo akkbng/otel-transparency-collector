@@ -30,53 +30,53 @@ func NewFactory() processor.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		DecisionWait:            30 * time.Second,
+		DecisionWait:            10 * time.Second,
 		NumTraces:               5000,
 		ExpectedNewTracesPerSec: 1,
-		PolicyCfgs: []PolicyCfg{
-			{
-				sharedPolicyCfg: sharedPolicyCfg{
-					Name: "composite-policy-1",
-					Type: Composite,
-				},
-				CompositeCfg: CompositeCfg{
-					MaxTotalSpansPerSecond: 1000,
-					PolicyOrder:            []string{"tilt-check-policy", "test-composite-policy-3"},
-					SubPolicyCfg: []CompositeSubPolicyCfg{
-						{
-							sharedPolicyCfg: sharedPolicyCfg{
-								Name:                "tilt-check-policy",
-								Type:                BooleanAttribute,
-								BooleanAttributeCfg: BooleanAttributeCfg{Key: "tilt.check_flag", Value: true},
-							},
-						},
-						//{
-						//	sharedPolicyCfg: sharedPolicyCfg{
-						//		Name:               "trace-path-policy",
-						//		Type:               StringAttribute,
-						//		StringAttributeCfg: StringAttributeCfg{Key: "key2", Values: []string{"value1", "value2"}},
-						//	},
-						//},
-						{
-							sharedPolicyCfg: sharedPolicyCfg{
-								Name: "test-composite-policy-3",
-								Type: AlwaysSample,
-							},
-						},
-					},
-					RateAllocation: []RateAllocationCfg{
-						{
-							Policy:  "tilt-check-policy",
-							Percent: 50,
-						},
-						//{
-						//	Policy:  "trace-path-policy",
-						//	Percent: 25,
-						//},
-					},
-				},
-			},
-		},
+		//PolicyCfgs: []PolicyCfg{
+		//	{
+		//		sharedPolicyCfg: sharedPolicyCfg{
+		//			Name: "composite-policy-1",
+		//			Type: Composite,
+		//		},
+		//		CompositeCfg: CompositeCfg{
+		//			MaxTotalSpansPerSecond: 1000,
+		//			PolicyOrder:            []string{"tilt-check-policy", "test-composite-policy-3"},
+		//			SubPolicyCfg: []CompositeSubPolicyCfg{
+		//				{
+		//					sharedPolicyCfg: sharedPolicyCfg{
+		//						Name:                "tilt-check-policy",
+		//						Type:                BooleanAttribute,
+		//						BooleanAttributeCfg: BooleanAttributeCfg{Key: "tilt.check_flag", Value: true},
+		//					},
+		//				},
+		//				//{
+		//				//	sharedPolicyCfg: sharedPolicyCfg{
+		//				//		Name:               "trace-path-policy",
+		//				//		Type:               StringAttribute,
+		//				//		StringAttributeCfg: StringAttributeCfg{Key: "key2", Values: []string{"value1", "value2"}},
+		//				//	},
+		//				//},
+		//				{
+		//					sharedPolicyCfg: sharedPolicyCfg{
+		//						Name: "test-composite-policy-3",
+		//						Type: AlwaysSample,
+		//					},
+		//				},
+		//			},
+		//			RateAllocation: []RateAllocationCfg{
+		//				{
+		//					Policy:  "tilt-check-policy",
+		//					Percent: 50,
+		//				},
+		//				//{
+		//				//	Policy:  "trace-path-policy",
+		//				//	Percent: 25,
+		//				//},
+		//			},
+		//		},
+		//	},
+		//},
 	}
 }
 
