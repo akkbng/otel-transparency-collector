@@ -2,15 +2,14 @@ package transparencyprocessor
 
 import (
 	"context"
-	"github.com/akkbng/otel-transparency-collector/internal/filter/expr"
 	"github.com/akkbng/otel-transparency-collector/internal/idbatcher"
 	"github.com/akkbng/otel-transparency-collector/internal/sampling"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/ottlspan"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/tag"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/processor"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -20,33 +19,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
 )
-
-var processorCapabilities = consumer.Capabilities{MutatesData: true}
-
-// this is gonna be deleted after we get the services list from tilt file
-var serviceList = [4]string{"cartservice", "emailservice", "quoteservice", "paymentservice"}
-
-const (
-	attrCheckFlag           = "tilt.check_flag"
-	attrCategories          = "tilt.dataDisclosed.category"
-	attrLegalBases          = "tilt.legal_bases"
-	attrLegitimateInterests = "tilt.legitimate_interests"
-	attrStorages            = "tilt.storage_durations"
-	attrPurposes            = "tilt.purposes"
-	attrAutomatedDecision   = "tilt.automated_decision_making"
-)
-
-type tiltAttributes struct {
-	lastUpdated         time.Time
-	checkFlag           bool
-	categories          []string
-	legalBases          []string
-	legitimateInterests []bool
-	storages            []string
-	purposes            []string
-	automatedDecision   bool
-	serviceName         string
-}
 
 // policy combines a sampling policy evaluator with the destinations to be
 // used for that policy.
@@ -60,18 +32,11 @@ type policy struct {
 }
 
 type transparencyProcessor struct {
-	logger *zap.Logger
-	ctx    context.Context
-
-	timeout time.Duration
-
-	mu              sync.RWMutex
-	attributesCache map[string]tiltAttributes
-	skipExpr        expr.BoolExpr[ottlspan.TransformContext]
-
+	ctx             context.Context
 	nextConsumer    consumer.Traces
 	maxNumTraces    uint64
 	policies        []*policy
+	logger          *zap.Logger
 	idToTrace       sync.Map
 	policyTicker    timeutils.TTicker
 	tickerFrequency time.Duration
@@ -80,10 +45,11 @@ type transparencyProcessor struct {
 	numTracesOnMap  *atomic.Uint64
 }
 
-func newTransparencyProcessor(ctx context.Context, settings component.TelemetrySettings, logger *zap.Logger, skipExpr expr.BoolExpr[ottlspan.TransformContext], nextConsumer consumer.Traces, cfg Config) (*transparencyProcessor, error) {
+func newTransparencyProcessor(ctx context.Context, settings component.TelemetrySettings, nextConsumer consumer.Traces, cfg Config) (processor.Traces, error) {
 	if nextConsumer == nil {
 		return nil, component.ErrNilNextConsumer
 	}
+
 	numDecisionBatches := uint64(cfg.DecisionWait.Seconds())
 	inBatcher, err := idbatcher.New(numDecisionBatches, cfg.ExpectedNewTracesPerSec, uint64(2*runtime.NumCPU()))
 	if err != nil {
@@ -110,11 +76,10 @@ func newTransparencyProcessor(ctx context.Context, settings component.TelemetryS
 	}
 
 	tsp := &transparencyProcessor{
-		logger:          logger,
-		nextConsumer:    nextConsumer,
-		skipExpr:        skipExpr,
 		ctx:             ctx,
+		nextConsumer:    nextConsumer,
 		maxNumTraces:    cfg.NumTraces,
+		logger:          settings.Logger,
 		decisionBatcher: inBatcher,
 		policies:        policies,
 		tickerFrequency: time.Second,
@@ -142,12 +107,12 @@ func getPolicyEvaluator(settings component.TelemetrySettings, cfg *PolicyCfg) (s
 func (tsp *transparencyProcessor) ConsumeTraces(ctx context.Context, td ptrace.Traces) error {
 	resourceSpans := td.ResourceSpans()
 	for i := 0; i < resourceSpans.Len(); i++ {
-		tsp.processTraces(ctx, resourceSpans.At(i))
+		tsp.processTraces(resourceSpans.At(i))
 	}
 	return nil
 }
 
-func (tsp *transparencyProcessor) groupSpansByTraceKey(ctx context.Context, resourceSpans ptrace.ResourceSpans) map[pcommon.TraceID][]*ptrace.Span {
+func (tsp *transparencyProcessor) groupSpansByTraceKey(resourceSpans ptrace.ResourceSpans) map[pcommon.TraceID][]*ptrace.Span {
 	idToSpans := make(map[pcommon.TraceID][]*ptrace.Span)
 	ilss := resourceSpans.ScopeSpans()
 	for j := 0; j < ilss.Len(); j++ {
@@ -155,20 +120,6 @@ func (tsp *transparencyProcessor) groupSpansByTraceKey(ctx context.Context, reso
 		spansLen := spans.Len()
 		for k := 0; k < spansLen; k++ {
 			span := spans.At(k)
-			if tsp.skipExpr != nil {
-				skip, err := tsp.skipExpr.Eval(ctx, ottlspan.NewTransformContext(span, ilss.At(j).Scope(), resourceSpans.Resource()))
-				if err != nil {
-					return nil //TODO: return error, check error handling
-				}
-				if skip {
-					continue
-				}
-			}
-			tiltComponent, ok := span.Attributes().Get(attrCategories)
-			if !ok {
-				continue
-			}
-			tsp.insertTiltCheck(&span, tiltComponent)
 			key := span.TraceID()
 			idToSpans[key] = append(idToSpans[key], &span)
 		}
@@ -176,9 +127,9 @@ func (tsp *transparencyProcessor) groupSpansByTraceKey(ctx context.Context, reso
 	return idToSpans
 }
 
-func (tsp *transparencyProcessor) processTraces(ctx context.Context, resourceSpans ptrace.ResourceSpans) {
+func (tsp *transparencyProcessor) processTraces(resourceSpans ptrace.ResourceSpans) {
 	// Group spans per their traceId to minimize contention on idToTrace
-	idToSpans := tsp.groupSpansByTraceKey(ctx, resourceSpans)
+	idToSpans := tsp.groupSpansByTraceKey(resourceSpans)
 	var newTraceIDs int64
 	for id, spans := range idToSpans {
 		lenSpans := int64(len(spans))
@@ -250,17 +201,8 @@ func (tsp *transparencyProcessor) processTraces(ctx context.Context, resourceSpa
 	stats.Record(tsp.ctx, statNewTraceIDReceivedCount.M(newTraceIDs))
 }
 
-func (tsp *transparencyProcessor) insertTiltCheck(span *ptrace.Span, tiltComponent pcommon.Value) {
-	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
-	if tiltComponent.AsString() != "" {
-		span.Attributes().PutBool(attrCheckFlag, true)
-	} else {
-		span.Attributes().PutBool(attrCheckFlag, false)
-	}
-}
-
 func (tsp *transparencyProcessor) Capabilities() consumer.Capabilities {
-	return consumer.Capabilities{MutatesData: false}
+	return consumer.Capabilities{MutatesData: true}
 }
 
 // Start is invoked during service startup.

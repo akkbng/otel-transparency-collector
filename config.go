@@ -1,7 +1,6 @@
 package transparencyprocessor
 
 import (
-	"github.com/akkbng/otel-transparency-collector/internal/filter/filterconfig"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl"
 	"time"
 )
@@ -33,6 +32,9 @@ const (
 	// OTTLCondition sample traces which match user provided OpenTelemetry Transformation Language
 	// conditions.
 	OTTLCondition PolicyType = "ottl_condition"
+
+	//TransparencyAttribute sample traces based on their tilt checks and service dependency paths
+	TransparencyAttribute PolicyType = "transparency_attribute"
 )
 
 // sharedPolicyCfg holds the common configuration to all policies that are used in derivative policy configurations
@@ -194,6 +196,5 @@ type Config struct {
 	ExpectedNewTracesPerSec uint64 `mapstructure:"expected_new_traces_per_sec"`
 	// PolicyCfgs sets the tail-based sampling policy which makes a sampling decision
 	// for a given trace when requested.
-	PolicyCfgs  []PolicyCfg              `mapstructure:"policies"`
-	MatchConfig filterconfig.MatchConfig `mapstructure:",squash"`
+	PolicyCfgs []PolicyCfg `mapstructure:"policies"`
 }
