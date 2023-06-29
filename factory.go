@@ -3,7 +3,6 @@ package transparencyprocessor
 import (
 	"context"
 	"github.com/akkbng/otel-transparency-collector/internal/filter/filterspan"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl"
 	"go.opencensus.io/stats/view"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configtelemetry"
@@ -31,9 +30,9 @@ func NewFactory() processor.Factory {
 
 func createDefaultConfig() component.Config {
 	return &Config{
-		DecisionWait:            10 * time.Second,
-		NumTraces:               100,
-		ExpectedNewTracesPerSec: 10,
+		DecisionWait:            30 * time.Second,
+		NumTraces:               5000,
+		ExpectedNewTracesPerSec: 1,
 		PolicyCfgs: []PolicyCfg{
 			{
 				sharedPolicyCfg: sharedPolicyCfg{
@@ -46,12 +45,9 @@ func createDefaultConfig() component.Config {
 					SubPolicyCfg: []CompositeSubPolicyCfg{
 						{
 							sharedPolicyCfg: sharedPolicyCfg{
-								Name: "tilt-check-policy",
-								Type: OTTLCondition,
-								OTTLConditionCfg: OTTLConditionCfg{
-									ErrorMode:      ottl.IgnoreError,
-									SpanConditions: []string{"attributes[\"tilt.check_flag\"] == false"},
-								},
+								Name:                "tilt-check-policy",
+								Type:                BooleanAttribute,
+								BooleanAttributeCfg: BooleanAttributeCfg{Key: "tilt.check_flag", Value: true},
 							},
 						},
 						//{
