@@ -168,7 +168,7 @@ func (tsp *transparencyProcessor) groupSpansByTraceKey(ctx context.Context, reso
 			if !ok {
 				continue
 			}
-			insertTiltCheck(span, tiltComponent)
+			tsp.insertTiltCheck(&span, tiltComponent)
 			key := span.TraceID()
 			idToSpans[key] = append(idToSpans[key], &span)
 		}
@@ -250,7 +250,7 @@ func (tsp *transparencyProcessor) processTraces(ctx context.Context, resourceSpa
 	stats.Record(tsp.ctx, statNewTraceIDReceivedCount.M(newTraceIDs))
 }
 
-func insertTiltCheck(span ptrace.Span, tiltComponent pcommon.Value) {
+func (tsp *transparencyProcessor) insertTiltCheck(span *ptrace.Span, tiltComponent pcommon.Value) {
 	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
 	if tiltComponent.AsString() != "" {
 		span.Attributes().PutBool(attrCheckFlag, true)
