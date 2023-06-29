@@ -71,7 +71,7 @@ func (taf *transparencyAttributeFilter) Evaluate(_ context.Context, _ pcommon.Tr
 			insertTiltCheck(span)
 			if v, ok := span.Attributes().Get(attrCheckFlag); ok {
 				value := v.Bool()
-				return value == false
+				return value == true //TODO: change this to false once we get the services list from tilt file
 			}
 			return false
 		}), nil
