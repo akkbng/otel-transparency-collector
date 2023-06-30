@@ -2,17 +2,20 @@ package sampling
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/akkbng/otel-transparency-collector/internal/filter/expr"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/ottlspan"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
-	"time"
+	"io/ioutil"
+	"net/http"
+	"strings"
 )
 
-// this is gonna be deleted after we get the services list from tilt file
-var serviceList = [4]string{"cartservice", "emailservice", "quoteservice", "paymentservice"}
+var spec *tiltSpec //create a new tiltSpec struct
 
 const (
 	attrCheckFlag           = "tilt.check_flag"
@@ -22,18 +25,45 @@ const (
 	attrStorages            = "tilt.storage_durations"
 	attrPurposes            = "tilt.purposes"
 	attrAutomatedDecision   = "tilt.automated_decision_making"
+	tiltFileUrl             = "https://github.com/akkbng/opentelemetry-astronomy-shop/raw/main/tilt.json" //maybe add this to config
+	attrServiceName         = "service.name"                                                              //resource attribute, not trace span attribute
 )
 
-type tiltAttributes struct {
-	lastUpdated         time.Time
-	checkFlag           bool
-	categories          []string
-	legalBases          []string
-	legitimateInterests []bool
-	storages            []string
-	purposes            []string
-	automatedDecision   bool
-	serviceName         string
+type tiltSpec struct {
+	DataDisclosed []struct {
+		ServiceId string `json:"_id"`
+		Category  string `json:"category"`
+		Purposes  []struct {
+			Purpose     string `json:"purpose"`
+			Description string `json:"description"`
+		} `json:"purposes"`
+		LegalBases []struct {
+			Reference   string `json:"reference"`
+			Description string `json:"description"`
+		} `json:"legalBases"`
+		LegitimateInterests []struct {
+			Exists    bool   `json:"exists"`
+			Reasoning string `json:"reasoning"`
+		} `json:"legitimateInterests"`
+		Recipients []struct {
+			Category string `json:"category"`
+		} `json:"recipients"`
+		Storage []struct {
+			Temporal              []any    `json:"temporal"`
+			PurposeConditional    []string `json:"purposeConditional"`
+			LegalBasisConditional []any    `json:"legalBasisConditional"`
+			AggregationFunction   string   `json:"aggregationFunction"`
+		} `json:"storage"`
+		NonDisclosure struct {
+			LegalRequirement      bool   `json:"legalRequirement"`
+			ContractualRegulation bool   `json:"contractualRegulation"`
+			ObligationToProvide   bool   `json:"obligationToProvide"`
+			Consequences          string `json:"consequences"`
+		} `json:"nonDisclosure"`
+	} `json:"dataDisclosed"`
+	AutomatedDecisionMaking struct {
+		InUse bool `json:"inUse"`
+	} `json:"automatedDecisionMaking"`
 }
 
 type transparencyAttributeFilter struct {
@@ -44,6 +74,8 @@ type transparencyAttributeFilter struct {
 var _ PolicyEvaluator = (*transparencyAttributeFilter)(nil)
 
 func NewTransparencyAttributeFilter(settings component.TelemetrySettings) PolicyEvaluator {
+	retrieveTiltFile(tiltFileUrl) //Check: Fetch the tilt file from the URL and store in tiltSpec struct --> maybe move this to evaluate
+
 	return &transparencyAttributeFilter{
 		logger: settings.Logger,
 	}
@@ -85,12 +117,12 @@ func (taf *transparencyAttributeFilter) Evaluate(ctx context.Context, _ pcommon.
 						continue
 					}
 				}
-				tiltComponent, ok := span.Attributes().Get(attrCategories)
+				currentServiceName, ok := resource.Attributes().Get(attrServiceName)
 				if !ok {
 					continue
 				}
-				insertTiltCheck(span, tiltComponent)
-				if insertTiltCheck(span, tiltComponent) == true {
+
+				if tiltCheckSampling(currentServiceName, span) == true {
 					return Sampled, nil
 				}
 			}
@@ -99,13 +131,40 @@ func (taf *transparencyAttributeFilter) Evaluate(ctx context.Context, _ pcommon.
 	return NotSampled, nil
 }
 
-func insertTiltCheck(span ptrace.Span, tiltComponent pcommon.Value) bool {
-	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
-	if tiltComponent.AsString() != "" {
-		span.Attributes().PutBool(attrCheckFlag, true)
-		return true
-	} else {
-		span.Attributes().PutBool(attrCheckFlag, false)
-		return false
+func tiltCheckSampling(currentServiceName pcommon.Value, span ptrace.Span) bool {
+	for _, service := range spec.DataDisclosed {
+		if currentServiceName.AsString() == service.ServiceId {
+			//check if the attrCategories attribute of the span is listed in the services' categories. Category is a string with multiple values separated by semi-colons
+			tiltCategoryAttribute, ok := span.Attributes().Get(attrCategories)
+			if !ok {
+				span.Attributes().PutBool(attrCheckFlag, false)
+				return false //if span name is in the service list, but attrCategories is not found, check flag is false and return true (sample) TODO:change to true
+			}
+			if strings.Contains(service.Category, tiltCategoryAttribute.AsString()) {
+				span.Attributes().PutBool(attrCheckFlag, true)
+				return true //if the category is found in the categories list, check flag is true and return false (don't sample) TODO:change to false
+			}
+		}
+		return false //if the current service name is not one of the ServiceIds in the spec struct, return false (don't sample) - no personal data is disclosed
 	}
+	return false
+}
+
+func retrieveTiltFile(url string) {
+	// Send an HTTP GET request to the URL
+	response, err := http.Get(url)
+	if err != nil {
+		fmt.Printf("Error fetching tilt file: %v", err)
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body) //read the response body
+	if err != nil {
+		fmt.Printf("Error reading body: %v", err)
+	}
+	err = json.Unmarshal(body, &spec)
+	if err != nil {
+		fmt.Printf("Error unmarshalling body: %v", err)
+	} //unmarshal the body into the tiltSpec struct
+
 }
