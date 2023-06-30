@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
-	"io"
 	"net/http"
 	"strings"
 )
@@ -159,18 +158,8 @@ func retrieveTiltFile(url string) {
 	}
 
 	defer response.Body.Close()
-	// Create a buffer to store the JSON content
-	buf := make([]byte, response.ContentLength)
-
-	// Read the response body and write it to the buffer
-	_, err = io.ReadFull(response.Body, buf)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
+	d := json.NewDecoder(response.Body)
+	if err := d.Decode(&spec); err != nil {
+		fmt.Printf("Error decoding tilt file: %v", err)
 	}
-	err = json.Unmarshal(buf, &spec)
-	if err != nil {
-		fmt.Printf("Error unmarshalling body: %v", err)
-	} //unmarshal the body into the tiltSpec struct
-
 }
