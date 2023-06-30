@@ -55,7 +55,7 @@ type transparencyAttributeFilter struct {
 var _ PolicyEvaluator = (*transparencyAttributeFilter)(nil)
 
 func NewTransparencyAttributeFilter(settings component.TelemetrySettings) PolicyEvaluator {
-	return &booleanAttributeFilter{
+	return &transparencyAttributeFilter{
 		logger: settings.Logger,
 	}
 }
