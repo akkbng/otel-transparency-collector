@@ -34,17 +34,16 @@ type tiltAttributes struct {
 	serviceName         string
 }
 
-func insertTiltCheck(span ptrace.Span) {
-	tiltComponent, ok := span.Attributes().Get(attrCategories)
-	if !ok {
-		return
+func insertTiltCheck(span ptrace.Span) (pcommon.Value, bool) {
+	if tiltComponent, ok := span.Attributes().Get(attrCategories); ok {
+		//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
+		if tiltComponent.AsString() != "" {
+			span.Attributes().PutBool(attrCheckFlag, true)
+		} else {
+			span.Attributes().PutBool(attrCheckFlag, false)
+		}
 	}
-	//if tiltComponent value is not empty, add "true" as the value of the checkFlag attribute
-	if tiltComponent.AsString() != "" {
-		span.Attributes().PutBool(attrCheckFlag, true)
-	} else {
-		span.Attributes().PutBool(attrCheckFlag, false)
-	}
+	return span.Attributes().Get(attrCheckFlag)
 }
 
 type transparencyAttributeFilter struct {
@@ -68,8 +67,7 @@ func (taf *transparencyAttributeFilter) Evaluate(_ context.Context, _ pcommon.Tr
 	return hasSpanWithCondition(
 		batches,
 		func(span ptrace.Span) bool {
-			insertTiltCheck(span)
-			if v, ok := span.Attributes().Get(attrCheckFlag); ok {
+			if v, ok := insertTiltCheck(span); ok {
 				value := v.Bool()
 				return value == true //TODO: change this to false once we get the services list from tilt file
 			}
