@@ -2,18 +2,25 @@ package transparencyprocessor
 
 import (
 	"context"
-	"github.com/akkbng/otel-transparency-collector/internal/filter/filterspan"
+	"go.opencensus.io/stats/view"
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/config/configtelemetry"
+	"sync"
+	"time"
 
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
-	"go.opentelemetry.io/collector/processor/processorhelper"
 )
 
-//const typeStr = "transparency"
+var onceMetrics sync.Once
 
 // NewFactory creates a factory for the transparency processor
 func NewFactory() processor.Factory {
+	onceMetrics.Do(func() {
+		// TODO: this is hardcoding the metrics level and skips error handling
+		_ = view.Register(SamplingProcessorMetricViews(configtelemetry.LevelNormal)...)
+	})
+
 	return processor.NewFactory(
 		Type,
 		createDefaultConfig,
@@ -21,25 +28,18 @@ func NewFactory() processor.Factory {
 }
 
 func createDefaultConfig() component.Config {
-	return &Config{}
+	return &Config{
+		DecisionWait: 30 * time.Second,
+		NumTraces:    5000,
+	}
 }
 
 func createTracesProcessor(
 	ctx context.Context,
-	set processor.CreateSettings,
+	params processor.CreateSettings,
 	cfg component.Config,
 	nextConsumer consumer.Traces,
 ) (processor.Traces, error) {
-	oCfg := cfg.(*Config)
-	skipExpr, err := filterspan.NewSkipExpr(&oCfg.MatchConfig)
-	if err != nil {
-		return nil, err
-	}
-	return processorhelper.NewTracesProcessor(
-		ctx,
-		set,
-		cfg,
-		nextConsumer,
-		newTransparencyProcessor(set.Logger, skipExpr).processTraces,
-		processorhelper.WithCapabilities(processorCapabilities))
+	tCfg := cfg.(*Config)
+	return newTransparencyProcessor(ctx, params.TelemetrySettings, nextConsumer, *tCfg)
 }
