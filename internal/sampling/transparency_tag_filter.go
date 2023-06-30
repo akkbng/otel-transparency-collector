@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/zap"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -131,16 +131,17 @@ func (taf *transparencyAttributeFilter) Evaluate(ctx context.Context, _ pcommon.
 	return NotSampled, nil
 }
 
+// TODO: range over all services in the tilt file doesn't work, only the first service is checked
 func tiltCheckSampling(currentServiceName pcommon.Value, span ptrace.Span) bool {
-	for service := range spec.DataDisclosed {
-		if currentServiceName.AsString() == spec.DataDisclosed[service].ServiceId {
+	for _, service := range spec.DataDisclosed {
+		if currentServiceName.AsString() == service.ServiceId {
 			//check if the attrCategories attribute of the span is listed in the services' categories. Category is a string with multiple values separated by semi-colons
 			tiltCategoryAttribute, ok := span.Attributes().Get(attrCategories)
 			if !ok {
 				span.Attributes().PutBool(attrCheckFlag, false)
 				return false //if span name is in the service list, but attrCategories is not found, check flag is false and return true (sample) TODO:change to true
 			}
-			if strings.Contains(spec.DataDisclosed[service].Category, tiltCategoryAttribute.AsString()) {
+			if strings.Contains(service.Category, tiltCategoryAttribute.AsString()) {
 				span.Attributes().PutBool(attrCheckFlag, true)
 				return true //if the category is found in the categories list, check flag is true and return false (don't sample) TODO:change to false
 			}
@@ -158,11 +159,16 @@ func retrieveTiltFile(url string) {
 	}
 
 	defer response.Body.Close()
-	body, err := ioutil.ReadAll(response.Body) //read the response body
+	// Create a buffer to store the JSON content
+	buf := make([]byte, response.ContentLength)
+
+	// Read the response body and write it to the buffer
+	_, err = io.ReadFull(response.Body, buf)
 	if err != nil {
-		fmt.Printf("Error reading body: %v", err)
+		fmt.Println("Error:", err)
+		return
 	}
-	err = json.Unmarshal(body, &spec)
+	err = json.Unmarshal(buf, &spec)
 	if err != nil {
 		fmt.Printf("Error unmarshalling body: %v", err)
 	} //unmarshal the body into the tiltSpec struct
