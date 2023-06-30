@@ -132,15 +132,15 @@ func (taf *transparencyAttributeFilter) Evaluate(ctx context.Context, _ pcommon.
 }
 
 func tiltCheckSampling(currentServiceName pcommon.Value, span ptrace.Span) bool {
-	for _, service := range spec.DataDisclosed {
-		if currentServiceName.AsString() == service.ServiceId {
+	for service := range spec.DataDisclosed {
+		if currentServiceName.AsString() == spec.DataDisclosed[service].ServiceId {
 			//check if the attrCategories attribute of the span is listed in the services' categories. Category is a string with multiple values separated by semi-colons
 			tiltCategoryAttribute, ok := span.Attributes().Get(attrCategories)
 			if !ok {
 				span.Attributes().PutBool(attrCheckFlag, false)
 				return false //if span name is in the service list, but attrCategories is not found, check flag is false and return true (sample) TODO:change to true
 			}
-			if strings.Contains(service.Category, tiltCategoryAttribute.AsString()) {
+			if strings.Contains(spec.DataDisclosed[service].Category, tiltCategoryAttribute.AsString()) {
 				span.Attributes().PutBool(attrCheckFlag, true)
 				return true //if the category is found in the categories list, check flag is true and return false (don't sample) TODO:change to false
 			}
