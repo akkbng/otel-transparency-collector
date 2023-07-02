@@ -24,8 +24,8 @@ const (
 	attrStorages            = "tilt.storage_durations"
 	attrPurposes            = "tilt.purposes"
 	attrAutomatedDecision   = "tilt.automated_decision_making"
-
-	attrServiceName = "service.name" //resource attribute, not trace span attribute
+	tiltFileUrl             = "https://github.com/akkbng/opentelemetry-astronomy-shop/raw/main/tilt.json" //maybe add this to config
+	attrServiceName         = "service.name"                                                              //resource attribute, not trace span attribute
 )
 
 type tiltSpec struct {
@@ -68,13 +68,12 @@ type tiltSpec struct {
 type transparencyAttributeFilter struct {
 	logger   *zap.Logger
 	skipExpr expr.BoolExpr[ottlspan.TransformContext]
-	tiltUrl  string
 }
 
 var _ PolicyEvaluator = (*transparencyAttributeFilter)(nil)
 
-func NewTransparencyAttributeFilter(settings component.TelemetrySettings, tiltUrl string) PolicyEvaluator {
-	retrieveTiltFile(tiltUrl)
+func NewTransparencyAttributeFilter(settings component.TelemetrySettings) PolicyEvaluator {
+	retrieveTiltFile(tiltFileUrl) //Check: Fetch the tilt file from the URL and store in tiltSpec struct
 
 	return &transparencyAttributeFilter{
 		logger: settings.Logger,
@@ -131,7 +130,7 @@ func (taf *transparencyAttributeFilter) Evaluate(ctx context.Context, _ pcommon.
 	return NotSampled, nil
 }
 
-// Current implementation does not sample if the first span comes from a service that is not in the tilt file
+// TODO: maybe add check flags first (at scope level), then make the sampling decision. Current implementation does not sample if the first span comes from a service that is not in the tilt file
 func tiltCheckSampling(currentServiceName pcommon.Value, span ptrace.Span) bool {
 	for _, service := range spec.DataDisclosed {
 		if currentServiceName.AsString() == service.ServiceId {

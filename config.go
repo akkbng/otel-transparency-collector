@@ -57,8 +57,7 @@ type sharedPolicyCfg struct {
 	// Configs for boolean attribute filter sampling policy evaluator.
 	BooleanAttributeCfg BooleanAttributeCfg `mapstructure:"boolean_attribute"`
 	// Configs for OTTL condition filter sampling policy evaluator
-	OTTLConditionCfg         OTTLConditionCfg         `mapstructure:"ottl_condition"`
-	TransparencyAttributeCfg TransparencyAttributeCfg `mapstructure:"transparency_attribute"`
+	OTTLConditionCfg OTTLConditionCfg `mapstructure:"ottl_condition"`
 }
 
 // CompositeSubPolicyCfg holds the common configuration to all policies under composite policy.
@@ -182,13 +181,6 @@ type OTTLConditionCfg struct {
 	ErrorMode           ottl.ErrorMode `mapstructure:"error_mode"`
 	SpanConditions      []string       `mapstructure:"span"`
 	SpanEventConditions []string       `mapstructure:"spanevent"`
-}
-
-// TransparencyAttributeCfg holds the configurable settings to create a transparency filter
-// sampling policy evaluator.
-type TransparencyAttributeCfg struct {
-	// TransparencyAttribute policy will fetch the static tilt document from the given url.
-	TiltUrl string `mapstructure:"tilt_url"`
 }
 
 // Config holds the configuration for tail-based sampling.

@@ -95,8 +95,7 @@ func getSharedPolicyEvaluator(settings component.TelemetrySettings, cfg *sharedP
 		ottlfCfg := cfg.OTTLConditionCfg
 		return sampling.NewOTTLConditionFilter(settings, ottlfCfg.SpanConditions, ottlfCfg.SpanEventConditions, ottlfCfg.ErrorMode)
 	case TransparencyAttribute:
-		tafCfg := cfg.TransparencyAttributeCfg
-		return sampling.NewTransparencyAttributeFilter(settings, tafCfg.TiltUrl), nil
+		return sampling.NewTransparencyAttributeFilter(settings), nil
 
 	default:
 		return nil, fmt.Errorf("unknown sampling policy type %s", cfg.Type)
