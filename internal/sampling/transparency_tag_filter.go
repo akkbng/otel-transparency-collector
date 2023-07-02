@@ -130,7 +130,7 @@ func (taf *transparencyAttributeFilter) Evaluate(ctx context.Context, _ pcommon.
 	return NotSampled, nil
 }
 
-// TODO: range over all services in the tilt file doesn't work, only the first service is checked
+// TODO: maybe add check flags first (at scope level), then make the sampling decision. Current implementation does not sample if the first span comes from a service that is not in the tilt file
 func tiltCheckSampling(currentServiceName pcommon.Value, span ptrace.Span) bool {
 	for _, service := range spec.DataDisclosed {
 		if currentServiceName.AsString() == service.ServiceId {
