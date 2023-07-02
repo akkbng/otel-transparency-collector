@@ -138,16 +138,20 @@ func tiltCheckSampling(currentServiceName pcommon.Value, span ptrace.Span) bool 
 			tiltCategoryAttribute, ok := span.Attributes().Get(attrCategories)
 			if !ok {
 				span.Attributes().PutBool(attrCheckFlag, false)
-				return false //if span name is in the service list, but attrCategories is not found, check flag is false and return true (sample) TODO:change to true
+				return false //if span name is in the service list, but attrCategories does not exist, check flag is false - sample TODO:change to true
 			}
 			if strings.Contains(service.Category, tiltCategoryAttribute.AsString()) {
 				span.Attributes().PutBool(attrCheckFlag, true)
-				return true //if the category is found in the categories list, check flag is true and return false (don't sample) TODO:change to false
+				return true //if span name is in the service list and attrCategories is found, check flag is true and return true - don't sample TODO:change to false
+			} else {
+				span.Attributes().PutBool(attrCheckFlag, false)
+				return false //if span name is in the service list, but attrCategories is not matching, check flag is false - sample TODO:change to true
 			}
+		} else {
+			continue //continue to next service
 		}
-		return false //if the current service name is not one of the ServiceIds in the spec struct, return false (don't sample) - no personal data is disclosed
 	}
-	return false
+	return false //if the current service name is not one of the ServiceIds in the spec struct, it doesn't contain personal data - don't sample
 }
 
 func retrieveTiltFile(url string) {
